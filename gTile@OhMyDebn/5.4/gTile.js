@@ -1603,7 +1603,7 @@ const set_gap_size = (size) => {
 };
 
 const move_resize_window = (metaWindow, x, y, width, height) => {
-    if (!metaWindow)
+    if (metaWindow == null)
         return;
 
     // Mind the gap! use configured GAP_SIZE
@@ -1629,20 +1629,33 @@ const move_resize_window = (metaWindow, x, y, width, height) => {
         monitor = utils_Main_0.layoutManager.primaryMonitor;
     }
 
-    // For sides that touch the monitor edge, keep the full GAP.
+    // Use the shared helper so panel hideability is evaluated the same way everywhere.
+    let usableLeft, usableTop, usableWidth, usableHeight;
+    try {
+        [usableLeft, usableTop, usableWidth, usableHeight] = getUsableScreenArea(monitor);
+    } catch (e) {
+        usableLeft = monitor.x;
+        usableTop = monitor.y;
+        usableWidth = monitor.width;
+        usableHeight = monitor.height;
+    }
+    const usableRight = usableLeft + usableWidth;
+    const usableBottom = usableTop + usableHeight;
+
+    // For sides that touch the usable area edge, keep the full GAP.
     // For internal sides (between two windows), use HALF_GAP on each window so the total gap is GAP_SIZE.
     let leftPadding = HALF_GAP;
     let rightPadding = HALF_GAP;
     let topPadding = HALF_GAP;
     let bottomPadding = HALF_GAP;
 
-    if (x <= monitor.x)
+    if (x <= usableLeft)
         leftPadding = GAP_SIZE;
-    if ((x + width) >= (monitor.x + monitor.width))
+    if ((x + width) >= usableRight)
         rightPadding = GAP_SIZE;
-    if (y <= monitor.y)
+    if (y <= usableTop)
         topPadding = GAP_SIZE;
-    if ((y + height) >= (monitor.y + monitor.height))
+    if ((y + height) >= usableBottom)
         bottomPadding = GAP_SIZE;
 
     x += leftPadding;
@@ -1654,8 +1667,8 @@ const move_resize_window = (metaWindow, x, y, width, height) => {
     if (width < 0) width = 0;
     if (height < 0) height = 0;
 
-     metaWindow.move_resize_frame(true, x, y, width, height);
-     metaWindow.move_frame(true, x, y);
+    metaWindow.move_resize_frame(true, x, y, width, height);
+    metaWindow.move_frame(true, x, y);
 };
 const get_window_center = (window) => {
     const pos_x = window.get_frame_rect().width / 2 + window.get_frame_rect().x;
