@@ -151,6 +151,16 @@ class Config {
             this.settings.bindProperty(Settings.BindingDirection.IN, nameOverride, nameOverride, this.updateGridSettings, null);
         }
         this.EnableHotkey();
+        // bind gap-size setting to this.gapSize and update platform gap when it changes
+        this.settings.bindProperty(Settings.BindingDirection.BIDIRECTIONAL, 'gap-size', 'gapSize', () => {
+            // ensure a sensible integer fallback
+            if (this.gapSize == null)
+                this.gapSize = 10;
+            // inform platform (App passed as this.app) about new gap
+            if (this.app && this.app.platform && typeof this.app.platform.set_gap_size === 'function') {
+                this.app.platform.set_gap_size(Number(this.gapSize) || 10);
+            }
+        }, null);
     }
     get AnimationTime() {
         return this.animation ? 0.3 : 0.1;
@@ -1584,19 +1594,68 @@ const move_maximize_window = (metaWindow, x, y) => {
     metaWindow.move_frame(true, x, y);
     metaWindow.maximize(utils_Meta.MaximizeFlags.HORIZONTAL | utils_Meta.MaximizeFlags.VERTICAL);
 };
+
+// mutable GAP value and setter (default 10)
+let GAP_SIZE = 10;
+const set_gap_size = (size) => {
+    const n = Number(size);
+    GAP_SIZE = isNaN(n) ? 10 : Math.max(0, Math.floor(n));
+};
+
 const move_resize_window = (metaWindow, x, y, width, height) => {
     if (!metaWindow)
         return;
 
-    // Mind the gap!
-    const GAP_SIZE = 10;
-    x += GAP_SIZE;
-    y += GAP_SIZE;
-    width -= 2 * GAP_SIZE;
-    height -= 2 * GAP_SIZE;
+    // Mind the gap! use configured GAP_SIZE
+    const HALF_GAP = Math.floor(GAP_SIZE / 2);
 
-    metaWindow.move_resize_frame(true, x, y, width, height);
-    metaWindow.move_frame(true, x, y);
+    // Try to find the monitor that contains the target rectangle.
+    // Fall back to primary monitor if none match.
+    let monitor = null;
+    try {
+        const monitors = utils_Main_0.layoutManager.monitors;
+        for (const mon of monitors) {
+            if (x >= mon.x && (x + width) <= (mon.x + mon.width) &&
+                y >= mon.y && (y + height) <= (mon.y + mon.height)) {
+                monitor = mon;
+                break;
+            }
+        }
+    }
+    catch (e) {
+        monitor = null;
+    }
+    if (!monitor) {
+        monitor = utils_Main_0.layoutManager.primaryMonitor;
+    }
+
+    // For sides that touch the monitor edge, keep the full GAP.
+    // For internal sides (between two windows), use HALF_GAP on each window so the total gap is GAP_SIZE.
+    let leftPadding = HALF_GAP;
+    let rightPadding = HALF_GAP;
+    let topPadding = HALF_GAP;
+    let bottomPadding = HALF_GAP;
+
+    if (x <= monitor.x)
+        leftPadding = GAP_SIZE;
+    if ((x + width) >= (monitor.x + monitor.width))
+        rightPadding = GAP_SIZE;
+    if (y <= monitor.y)
+        topPadding = GAP_SIZE;
+    if ((y + height) >= (monitor.y + monitor.height))
+        bottomPadding = GAP_SIZE;
+
+    x += leftPadding;
+    y += topPadding;
+    width -= (leftPadding + rightPadding);
+    height -= (topPadding + bottomPadding);
+
+    // Ensure we don't produce negative sizes
+    if (width < 0) width = 0;
+    if (height < 0) height = 0;
+
+     metaWindow.move_resize_frame(true, x, y, width, height);
+     metaWindow.move_frame(true, x, y);
 };
 const get_window_center = (window) => {
     const pos_x = window.get_frame_rect().width / 2 + window.get_frame_rect().x;
@@ -1645,6 +1704,7 @@ let app;
 const platform = {
     move_maximize_window: move_maximize_window,
     move_resize_window: move_resize_window,
+    set_gap_size: set_gap_size,
     reset_window: reset_window,
     get_window_center: get_window_center,
     subscribe_to_focused_window_changes: subscribe_to_focused_window_changes,

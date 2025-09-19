@@ -61,7 +61,8 @@
             "aspect-ratio",
             "useMonitorCenter",
             "showGridOnAllMonitors",
-            "select-using-keyboard"
+            "select-using-keyboard",
+            "gap-size"
          ]
       },
       "grid1-section": {
@@ -414,5 +415,22 @@
       "type": "checkbox",
       "default": false,
       "description": "Show tile labels"
+   },
+   "seperator5" : {
+      "type" : "separator"
+   },
+   "header5" : {
+      "type" : "header",
+      "description" : "Gaps:"
+   },
+   "gap-size": {
+      "type" : "spinbutton",
+      "indent" : "true",
+      "default" : 10,
+      "min" : 0,
+      "max" : 100,
+      "units" : "px",
+      "step" : 1,
+      "description" : "Window gaps in pixels"
    }
 }
